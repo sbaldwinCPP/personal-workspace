@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb 17 09:08:01 2021
 
 @author: sbaldwin
 """
 '''
 
- First attempt at a plotting tool to QA HVAC scenarios
  Inputs:
-       #####fitnew.xls
        XY coordinates
        .PNG of site
 '''
@@ -19,37 +16,25 @@ import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 import numpy as np
 import os
-import tkinter as tk
-from tkinter import filedialog as fd, messagebox as mb
+import easygui
 import sys
 import time
 import pickle as pk
 
 #%% initialize
 inidir = os.path.dirname(os.path.abspath(__file__)) 
-
-SavePath=inidir+'/FitMapSave.pkl'
-
-#setup tk window(s)
-root = tk.Tk()
-root.withdraw()
-root.lift()
+SavePath=inidir+'/DotPlotSave.pkl'
 
 #%% dialogs & setup
 
+#make this  a function later to keep msg, title, etc. out of memory
 if os.path.exists(SavePath):
-    YN_LoadSave=mb.askyesnocancel('.pkl found','Re-use the last image settings?/n'+SavePath)    
-else:YN_LoadSave=False
-    
-Fit_path = fd.askopenfilename(parent=root, initialdir=inidir, 
-                                   title='Please select a fit file', 
-                                   filetypes=[('Fit File','fitnew.xls')])
-if Fit_path=='': sys.exit()
+    msg='Re-use the last image settings?'
+    title='Previous settings found here: '+SavePath
+    YN_LoadSave=easygui.ynbox(msg,title)    
+else:
+    YN_LoadSave=False
 
-
-  
-#target the location of fit file for addtl file selections & plots
-Targdir=os.path.dirname(Fit_path)
 
 if YN_LoadSave:
     with open(SavePath, 'rb') as handle: ImIn = pk.load(handle)
@@ -60,27 +45,25 @@ if YN_LoadSave:
     Dx=ImIn['Dx']
     Dy=ImIn['Dy']
     im = plt.imread(im_path)
-    
 else:
-    XY_path = fd.askopenfilename(parent=root, initialdir=Targdir, 
-                                       title='Please select an XY file', 
-                                       filetypes=[('XY File','XY.xlsx'),
-                                                  ('XY File','XY.xls')])
-    if XY_path=='': sys.exit()
-        
+    txt='Select input file...'
+    ftyp= '*.xlsx'
+    dft=inidir + "\\" + ftyp
+    XY_path = easygui.fileopenbox(default=dft,msg=txt,filetypes=ftyp)
+    if XY_path==None:sys.exit()
+    #target the location of fit file for addtl file selections & plots
+    Targdir=os.path.dirname(XY_path)
+    imtxt='Please select a site plan...'
+    imftyp= '*.png'
+    imdft=Targdir + "\\" + imftyp
+    im_path=easygui.fileopenbox(default=imdft,msg=imtxt,filetypes=imftyp)
+    if im_path==None:sys.exit()
     
-    im_path= fd.askopenfilename(parent=root, initialdir=Targdir, 
-                                           title='Please select a site plan', 
-                                           filetypes=[('Site Plan','.png')])
-    if im_path=='': sys.exit()
-
-YN_rec=mb.askyesnocancel('Plot by receptor?','Make a plot for each receptor?')
-YN_stack=mb.askyesnocancel('Plot by stack?','Make a plot for each stack?')
-YN_all=mb.askyesnocancel('Plot All?','Make a single plot with all fits?',default='no')
 
 t = time.time() #start timer
 
-root.destroy()
+#this is as far as i made it at first attempt (7/14/21)
+#need to clean up all functions and update input .xlsx next
 
 #%% functions
 def GetFS_XY(ID):
