@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 """
+Created to replace matlab code AQColoredDotsPlots.m
 
 @author: sbaldwin
 """
 '''
+required packages:
+    openpyxl
+    pandas
+    easygui
 
  Inputs:
        XY coordinates
@@ -106,7 +111,7 @@ def Deg_to_uv(deg):
 
 def Read_files():
     '''
-    Read Fits And XY files from local Fit_path, XY_path
+    Read input files and parse data
 
     Returns
     -------
@@ -128,33 +133,35 @@ def Read_files():
     
     XYdat.Stack_Rec=XYdat.Stack_Rec.astype('str')       #force to string
    
-    #read fits
-    Fits=pd.read_table(Fit_path, 
-                 skiprows=4, 
-                 header=None,
-                 )
-    
-    Fits.columns=('ProjNum',
-                  'RunNum',
-                  'RunLet',
-                  'Cm',
-                  'WDc',
-                  'WSc',
-                  'A',
-                  'B',
-                  'RMSE',
-                  'Bias',
-                  'WDmin',
-                  'WDmax',
-                  'PltNum',
-                  'Stack',
-                  'Ht',
-                  'Rec',
-                  'DateTime',
-                  )
-    
-    
-    Fits.Rec=Fits.Rec.astype('str')       #force to string
+# =============================================================================
+#     #read fits
+#     Fits=pd.read_table(Fit_path, 
+#                  skiprows=4, 
+#                  header=None,
+#                  )
+#     
+#     Fits.columns=('ProjNum',
+#                   'RunNum',
+#                   'RunLet',
+#                   'Cm',
+#                   'WDc',
+#                   'WSc',
+#                   'A',
+#                   'B',
+#                   'RMSE',
+#                   'Bias',
+#                   'WDmin',
+#                   'WDmax',
+#                   'PltNum',
+#                   'Stack',
+#                   'Ht',
+#                   'Rec',
+#                   'DateTime',
+#                   )
+#     
+#     
+#     Fits.Rec=Fits.Rec.astype('str')       #force to string
+# =============================================================================
     
 # =============================================================================
 #     #Enable this block if using raw stack/receptor lebels like 'AA:stack' or '101 Receptor'
@@ -379,24 +386,27 @@ if not os.path.exists(PlotPath):
         
 #%% Generate plots
 
-if YN_rec:
-    receptors= list(Fits.Rec.drop_duplicates())
-    for rec in receptors:
-        df_in=Fits[Fits.Rec==rec].copy()
-        cbScale(df_in.Cm)
-        Fit_map(df_in, rec, 'rec')
-    
-if YN_stack:
-    stacks= list(Fits.Stack.drop_duplicates())
-    for stack in stacks:
-        df_in=Fits[Fits.Stack==stack].copy()
-        cbScale(df_in.Cm)
-        Fit_map(df_in, stack, 'stack')
-
-if YN_all:
-    df_in=Fits.copy()
-    cbScale(df_in.Cm)
-    Fit_map(Fits,'All','all')
+# pull usefull loops out later
+# =============================================================================
+# if YN_rec:
+#     receptors= list(Fits.Rec.drop_duplicates())
+#     for rec in receptors:
+#         df_in=Fits[Fits.Rec==rec].copy()
+#         cbScale(df_in.Cm)
+#         Fit_map(df_in, rec, 'rec')
+#     
+# if YN_stack:
+#     stacks= list(Fits.Stack.drop_duplicates())
+#     for stack in stacks:
+#         df_in=Fits[Fits.Stack==stack].copy()
+#         cbScale(df_in.Cm)
+#         Fit_map(df_in, stack, 'stack')
+# 
+# if YN_all:
+#     df_in=Fits.copy()
+#     cbScale(df_in.Cm)
+#     Fit_map(Fits,'All','all')
+# =============================================================================
    
 #%% done
 elapsed = round(time.time()-t,1)
