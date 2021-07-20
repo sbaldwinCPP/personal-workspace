@@ -19,7 +19,7 @@ required packages:
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-import numpy as np
+#import numpy as np
 import os
 import easygui
 import sys
@@ -34,8 +34,8 @@ SavePath=inidir+'/DotPlotSave.pkl'
 
 #make this  a function later to keep msg, title, etc. out of memory
 if os.path.exists(SavePath):
-    msg='Re-use the last image settings?'
-    title='Previous settings found here: '+SavePath
+    msg='Re-use these saved image settings? \n'+SavePath
+    title='Previous settings found...'
     YN_LoadSave=easygui.ynbox(msg,title)    
 else:
     YN_LoadSave=False
@@ -67,10 +67,35 @@ else:
 
 t = time.time() #start timer
 
-#this is as far as i made it at first attempt (7/14/21)
-#need to clean up all functions and update input .xlsx next
-
 #%% functions
+def Read_files(XY_path):
+    '''
+    Read input file and parse data
+
+    Returns
+    -------
+    XYdat, header, data 
+    Input data parsed into dataframes
+
+    '''
+        
+    #read XY coordinates
+    XYdat=pd.read_excel(XY_path, header=0, usecols=(0,1,2))
+    XYdat.columns=('Stack_Rec',
+                    'Xpos',
+                    'Ypos')
+    XYdat.Stack_Rec=XYdat.Stack_Rec.astype('str')       #force to string
+    
+    #Read 1st 2 rows, used to set cloorbar scale & label, filename
+    header=pd.read_excel(XY_path, header=None, nrows=2)
+    header.drop(columns=[0,1,2], inplace=True)
+    
+    #Read data to be plotted, column indexes match those in header
+    data=pd.read_excel(XY_path, skiprows=2, header=None)
+    data.drop(columns=[0,1,2], inplace=True)
+    
+    return XYdat, header, data
+
 def GetFS_XY(ID):
     ''' 
     Get full-scale XY coordinartes from XYdat
@@ -98,80 +123,6 @@ def Get_im_XY(ID):
     x,y=GetFS_XY(ID)
     X,Y=FS_to_im(x,y)
     return X,Y
-
-def Deg_to_uv(deg): 
-    '''
-    Convert wind direction from degrees to uv coordinates
-
-    '''
-    deg=90-deg              #adjust from N at 'top' to N 'left'
-    u=np.cos(deg*np.pi/180)
-    v=np.sin(deg*np.pi/180)
-    return u,v
-
-def Read_files():
-    '''
-    Read input files and parse data
-
-    Returns
-    -------
-    None.
-    Generates global XYdat & Fits dataframes
-
-    '''
-    global XYdat,Fits
-    
-    #read XY
-    XYdat=pd.read_excel(XY_path, header=0, usecols=(0,1,2))
-    XYdat.columns=('Stack_Rec',
-                    #'Description',
-                    'Xpos',
-                    'Ypos',
-                    #'Zpos',
-                    #'Zrel',            
-                    )
-    
-    XYdat.Stack_Rec=XYdat.Stack_Rec.astype('str')       #force to string
-   
-# =============================================================================
-#     #read fits
-#     Fits=pd.read_table(Fit_path, 
-#                  skiprows=4, 
-#                  header=None,
-#                  )
-#     
-#     Fits.columns=('ProjNum',
-#                   'RunNum',
-#                   'RunLet',
-#                   'Cm',
-#                   'WDc',
-#                   'WSc',
-#                   'A',
-#                   'B',
-#                   'RMSE',
-#                   'Bias',
-#                   'WDmin',
-#                   'WDmax',
-#                   'PltNum',
-#                   'Stack',
-#                   'Ht',
-#                   'Rec',
-#                   'DateTime',
-#                   )
-#     
-#     
-#     Fits.Rec=Fits.Rec.astype('str')       #force to string
-# =============================================================================
-    
-# =============================================================================
-#     #Enable this block if using raw stack/receptor lebels like 'AA:stack' or '101 Receptor'
-#     import re
-#     for i in Fits.index:
-#         #reduce receptor to 1st number
-#         Fits.loc[i, 'Rec']=re.search(r'\d+', Fits.Rec[i]).group()
-#         #reduce stack to 2 letters
-#         Fits.loc[i, 'Stack']=Fits.loc[i, 'Stack'][0:2]
-# =============================================================================
 
 def Image_Scale(im_file):
     '''
@@ -232,120 +183,139 @@ def Image_Scale(im_file):
            }
     
     # Store data (serialize) as pkl file
-    with open(SavePath, 'wb') as handle: pk.dump(ImOut, handle, protocol=pk.HIGHEST_PROTOCOL)    
-    
-def Fit_map(df,name,SR):
-    '''
-    Generate the plots this whole script is built for
-    
-    Parameters
-    ----------
-    df : DataFrame
-        Fit File from Read_files()
-    name : String
-        Name of plot.
-    SR : String
-        Type of plot.
+    with open(SavePath, 'wb') as handle: pk.dump(ImOut, 
+                                                 handle, 
+                                                 protocol=pk.HIGHEST_PROTOCOL)    
 
-    Returns
-    -------
-    None,
-    Plots saved to target directory
-    '''
-    
-    fig, ax = plt.subplots(figsize=FigSize)
-    ax.imshow(im, 
-              interpolation='spline16'
-              )
-    
-    for i in df.index:
-        
-        #Stack xy pos
-        x,y=Get_im_XY(df.Stack[i])
-        
-        #receptor xy pos (relative to stack)
-        sx,sy=Get_im_XY(df.Rec[i])
-        rx=sx-x
-        ry=sy-y
-        
-        #get wdc in uv coordinates
-        deg=df.WDc[i]-180              # deg points upwind, -180 to point downwind
-        ax,ay=Deg_to_uv(deg)
-        
-        df.loc[i,'x']=x
-        df.loc[i,'y']=y
-        df.loc[i,'rx']=rx
-        df.loc[i,'ry']=ry
-        df.loc[i,'ax']=ax
-        df.loc[i,'ay']=ay
-        df.loc[i,'sx']=sx
-        df.loc[i,'sy']=sy
-        
-        #midpoint locations
-        df.loc[i,'tx']=(x+sx)/2
-        df.loc[i,'ty']=(y+sy)/2
-        
-    #plot green arrow from stack to receptor
-    plt.quiver(df.x,df.y,df.rx,df.ry,
-                    color='lime',
-                    angles='xy',
-                    scale_units='xy',
-                    scale=1,
-                   )
-    
-    #plot color arrow on stack     
-    if SR=='stack':
-        #centered on receptor
-        plt.quiver(df.sx,df.sy,df.ax,df.ay,
-                   df.Cm, cmap=sm.cmap
-                   )
-        
-        #annotations
-        #centered on rec
-        for i in df.index:
-            plt.annotate(df.RunNum[i], (df.sx[i], df.sy[i]+Run_offset), color=Run_color) 
-            #plt.annotate(round(df.Cm[i]), (df.sx[i], df.sy[i]-Cm_offset), color=Cm_color)
-        
-    elif SR=='rec':
-        #centered on stack
-        plt.quiver(df.x,df.y,df.ax,df.ay,
-                   df.Cm, cmap=sm.cmap
-                   )
 
-        #annotations
-        #centered on stack
-        for i in df.index:
-            plt.annotate(df.RunNum[i], (df.x[i], df.y[i]+Run_offset), color=Run_color) 
-            #plt.annotate(round(df.Cm[i]), (df.x[i], df.y[i]-Cm_offset), color=Cm_color)
-            
-    elif SR=='all':
-        #centered on stack
-        plt.quiver(df.x,df.y,df.ax,df.ay,
-                   df.Cm, cmap=cmap
-                   )
-        
-        #all fits too crowded for annotations, replace with tooltips later
+def DotPlot(series,bounds,*title):
+    #make plot function here
+    print('do some stuff')
+    
+
+    
 # =============================================================================
-#         #run num annotations
+# def Fit_map(df,name,SR):
+#     '''
+#     Generate the plots this whole script is built for
+#     
+#     Parameters
+#     ----------
+#     df : DataFrame
+#         Fit File from Read_files()
+#     name : String
+#         Name of plot.
+#     SR : String
+#         Type of plot.
+# 
+#     Returns
+#     -------
+#     None,
+#     Plots saved to target directory
+#     '''
+#     
+#     fig, ax = plt.subplots(figsize=FigSize)
+#     ax.imshow(im, 
+#               interpolation='spline16'
+#               )
+#     
+#     for i in df.index:
+#         
+#         #Stack xy pos
+#         x,y=Get_im_XY(df.Stack[i])
+#         
+#         #receptor xy pos (relative to stack)
+#         sx,sy=Get_im_XY(df.Rec[i])
+#         rx=sx-x
+#         ry=sy-y
+#         
+#         #get wdc in uv coordinates
+#         deg=df.WDc[i]-180              # deg points upwind, -180 to point downwind
+#         ax,ay=Deg_to_uv(deg)
+#         
+#         df.loc[i,'x']=x
+#         df.loc[i,'y']=y
+#         df.loc[i,'rx']=rx
+#         df.loc[i,'ry']=ry
+#         df.loc[i,'ax']=ax
+#         df.loc[i,'ay']=ay
+#         df.loc[i,'sx']=sx
+#         df.loc[i,'sy']=sy
+#         
+#         #midpoint locations
+#         df.loc[i,'tx']=(x+sx)/2
+#         df.loc[i,'ty']=(y+sy)/2
+#         
+#     #plot green arrow from stack to receptor
+#     plt.quiver(df.x,df.y,df.rx,df.ry,
+#                     color='lime',
+#                     angles='xy',
+#                     scale_units='xy',
+#                     scale=1,
+#                    )
+#     
+#     #plot color arrow on stack     
+#     if SR=='stack':
+#         #centered on receptor
+#         plt.quiver(df.sx,df.sy,df.ax,df.ay,
+#                    df.Cm, cmap=sm.cmap
+#                    )
+#         
+#         #annotations
+#         #centered on rec
+#         for i in df.index:
+#             plt.annotate(df.RunNum[i], (df.sx[i], df.sy[i]+Run_offset), color=Run_color) 
+#             #plt.annotate(round(df.Cm[i]), (df.sx[i], df.sy[i]-Cm_offset), color=Cm_color)
+#         
+#     elif SR=='rec':
+#         #centered on stack
+#         plt.quiver(df.x,df.y,df.ax,df.ay,
+#                    df.Cm, cmap=sm.cmap
+#                    )
+# 
+#         #annotations
 #         #centered on stack
 #         for i in df.index:
-#             plt.annotate(df.RunNum[i], (df.x[i], df.y[i]), color='red')
+#             plt.annotate(df.RunNum[i], (df.x[i], df.y[i]+Run_offset), color=Run_color) 
+#             #plt.annotate(round(df.Cm[i]), (df.x[i], df.y[i]-Cm_offset), color=Cm_color)
+#             
+#     elif SR=='all':
+#         #centered on stack
+#         plt.quiver(df.x,df.y,df.ax,df.ay,
+#                    df.Cm, cmap=cmap
+#                    )
+#         
+#         #all fits too crowded for annotations, replace with tooltips later
+# # =============================================================================
+# #         #run num annotations
+# #         #centered on stack
+# #         for i in df.index:
+# #             plt.annotate(df.RunNum[i], (df.x[i], df.y[i]), color='red')
+# # =============================================================================
+# 
+#     #colorbar
+#     cb=plt.colorbar(sm)
+#     cb.ax.set_title('Cm')
+#     
+#     plt.axis('off') #remove tick marks on axis
+#     
+#     SavePath=os.path.join(PlotPath,'Fit_map_'+name+'.png')
+#     
+#     plt.savefig(SavePath)
+#     print('File saved: '+SavePath)
+#     
+#     plt.close()
 # =============================================================================
 
-    #colorbar
-    cb=plt.colorbar(sm)
-    cb.ax.set_title('Cm')
-    
-    plt.axis('off') #remove tick marks on axis
-    
-    SavePath=os.path.join(PlotPath,'Fit_map_'+name+'.png')
-    
-    plt.savefig(SavePath)
-    print('File saved: '+SavePath)
-    
-    plt.close()
 
-#%%plot settings
+#%% Begin Real Script
+
+#setup_gui()        #make guis a function later
+
+# read files
+XYdat, header,data=Read_files(XY_path)
+
+#%% Plot settings # make this a GUI later
 
 #window size in inches (x,y)
 FigSize=(6,8)
@@ -353,34 +323,19 @@ FigSize=(6,8)
 cmap=cm.get_cmap('cool')
 #cmap=cm.get_cmap('coolwarm')
 
-
-#colorbar setup func
-def cbScale(Cm):
-    global sm
-    norm = colors.Normalize()
-    norm.autoscale(Cm)
-    sm = cm.ScalarMappable(cmap=cmap,norm=norm)
-    sm.set_array([])
-
-
-#annotation text 
-Run_color='k'
-Run_offset=0
-Cm_color='r'
-Cm_offset=0
-
-
-#%% Real Script starts here
-
-# read files
-Read_files()
+# =============================================================================
+# #annotation text 
+# Run_color='k'
+# Run_offset=0
+# Cm_color='r'
+# Cm_offset=0
+# =============================================================================
 
 # run image scale function
 if not YN_LoadSave: Image_Scale(im_path)
 
 # make plots folder if it doesnt exist
 PlotPath=Targdir+'/zFitMaps'
-
 if not os.path.exists(PlotPath):
     os.makedirs(PlotPath)
         
