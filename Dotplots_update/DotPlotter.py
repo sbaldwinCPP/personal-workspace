@@ -65,7 +65,7 @@ else:
     if im_path==None:sys.exit()
     
 
-t = time.time() #start timer
+t0 = time.time() #start timer
 
 #%% functions
 def Read_files(XY_path):
@@ -80,14 +80,15 @@ def Read_files(XY_path):
     '''
         
     #read XY coordinates
-    XYdat=pd.read_excel(XY_path, header=0, usecols=(0,1,2))
-    XYdat.columns=('Stack_Rec',
-                    'Xpos',
-                    'Ypos')
-    XYdat.Stack_Rec=XYdat.Stack_Rec.astype('str')       #force to string
+    XYdat=pd.read_excel(XY_path, skiprows=2, usecols=(0,1,2), header=None)
+    XYdat.columns=('ID',
+                    'X_FS',
+                    'Y_FS')
+    XYdat.ID=XYdat.ID.astype('str')       #force to string
     
-    #Read 1st 2 rows, used to set cloorbar scale & label, filename
-    header=pd.read_excel(XY_path, header=None, nrows=2)
+    
+    #Read 1st 2 rows, used to set colorbar scale & label, filename
+    header=pd.read_excel(XY_path, nrows=2, header=None)
     header.drop(columns=[0,1,2], inplace=True)
     
     #Read data to be plotted, column indexes match those in header
@@ -102,27 +103,29 @@ def GetFS_XY(ID):
 
     '''
     ID=str(ID)                                        # force to string
-    x=float(XYdat[XYdat.Stack_Rec==ID].Xpos)
-    y=float(XYdat[XYdat.Stack_Rec==ID].Ypos)
+    x=float(XYdat[XYdat.ID==ID].X_FS)
+    y=float(XYdat[XYdat.ID==ID].Y_FS)
     return x,y
 
-def FS_to_im(x_in,y_in):
-    ''' 
-    Convert full-scale XY coords into image-scale XY coords
-
-    '''
-    xout=x_in*Xscale+Dx
-    yout=y_in*Yscale+Dy
-    return xout,yout
-    
-def Get_im_XY(ID):
-    ''' 
-    Get image-scale XY coordinartes from stack/receptor ID
-
-    '''
-    x,y=GetFS_XY(ID)
-    X,Y=FS_to_im(x,y)
-    return X,Y
+# =============================================================================
+# def FS_to_im(x_in,y_in):
+#     ''' 
+#     Convert full-scale XY coords into image-scale XY coords
+# 
+#     '''
+#     xout=x_in*Xscale+Dx
+#     yout=y_in*Yscale+Dy
+#     return xout,yout
+#     
+# def Get_im_XY(ID):
+#     ''' 
+#     Get image-scale XY coordinartes from stack/receptor ID
+# 
+#     '''
+#     x,y=GetFS_XY(ID)
+#     X,Y=FS_to_im(x,y)
+#     return X,Y
+# =============================================================================
 
 def Image_Scale(im_file):
     '''
@@ -188,124 +191,29 @@ def Image_Scale(im_file):
                                                  protocol=pk.HIGHEST_PROTOCOL)    
 
 
+
+#colorbar setup func
+def cbScale(bounds,cmap):
+    norm = colors.Normalize()
+    norm.autoscale(bounds)
+    sm = bounds.ScalarMappable(cmap=cmap,norm=norm)
+    sm.set_array([])
+    return sm
+
 def DotPlot(series,bounds,*title):
     #make plot function here
     print('do some stuff')
     
-
     
-# =============================================================================
-# def Fit_map(df,name,SR):
-#     '''
-#     Generate the plots this whole script is built for
-#     
-#     Parameters
-#     ----------
-#     df : DataFrame
-#         Fit File from Read_files()
-#     name : String
-#         Name of plot.
-#     SR : String
-#         Type of plot.
-# 
-#     Returns
-#     -------
-#     None,
-#     Plots saved to target directory
-#     '''
-#     
-#     fig, ax = plt.subplots(figsize=FigSize)
-#     ax.imshow(im, 
-#               interpolation='spline16'
-#               )
-#     
-#     for i in df.index:
-#         
-#         #Stack xy pos
-#         x,y=Get_im_XY(df.Stack[i])
-#         
-#         #receptor xy pos (relative to stack)
-#         sx,sy=Get_im_XY(df.Rec[i])
-#         rx=sx-x
-#         ry=sy-y
-#         
-#         #get wdc in uv coordinates
-#         deg=df.WDc[i]-180              # deg points upwind, -180 to point downwind
-#         ax,ay=Deg_to_uv(deg)
-#         
-#         df.loc[i,'x']=x
-#         df.loc[i,'y']=y
-#         df.loc[i,'rx']=rx
-#         df.loc[i,'ry']=ry
-#         df.loc[i,'ax']=ax
-#         df.loc[i,'ay']=ay
-#         df.loc[i,'sx']=sx
-#         df.loc[i,'sy']=sy
-#         
-#         #midpoint locations
-#         df.loc[i,'tx']=(x+sx)/2
-#         df.loc[i,'ty']=(y+sy)/2
-#         
-#     #plot green arrow from stack to receptor
-#     plt.quiver(df.x,df.y,df.rx,df.ry,
-#                     color='lime',
-#                     angles='xy',
-#                     scale_units='xy',
-#                     scale=1,
-#                    )
-#     
-#     #plot color arrow on stack     
-#     if SR=='stack':
-#         #centered on receptor
-#         plt.quiver(df.sx,df.sy,df.ax,df.ay,
-#                    df.Cm, cmap=sm.cmap
-#                    )
-#         
-#         #annotations
-#         #centered on rec
-#         for i in df.index:
-#             plt.annotate(df.RunNum[i], (df.sx[i], df.sy[i]+Run_offset), color=Run_color) 
-#             #plt.annotate(round(df.Cm[i]), (df.sx[i], df.sy[i]-Cm_offset), color=Cm_color)
-#         
-#     elif SR=='rec':
-#         #centered on stack
-#         plt.quiver(df.x,df.y,df.ax,df.ay,
-#                    df.Cm, cmap=sm.cmap
-#                    )
-# 
-#         #annotations
-#         #centered on stack
-#         for i in df.index:
-#             plt.annotate(df.RunNum[i], (df.x[i], df.y[i]+Run_offset), color=Run_color) 
-#             #plt.annotate(round(df.Cm[i]), (df.x[i], df.y[i]-Cm_offset), color=Cm_color)
-#             
-#     elif SR=='all':
-#         #centered on stack
-#         plt.quiver(df.x,df.y,df.ax,df.ay,
-#                    df.Cm, cmap=cmap
-#                    )
-#         
-#         #all fits too crowded for annotations, replace with tooltips later
-# # =============================================================================
-# #         #run num annotations
-# #         #centered on stack
-# #         for i in df.index:
-# #             plt.annotate(df.RunNum[i], (df.x[i], df.y[i]), color='red')
-# # =============================================================================
-# 
-#     #colorbar
-#     cb=plt.colorbar(sm)
-#     cb.ax.set_title('Cm')
-#     
-#     plt.axis('off') #remove tick marks on axis
-#     
-#     SavePath=os.path.join(PlotPath,'Fit_map_'+name+'.png')
-#     
-#     plt.savefig(SavePath)
-#     print('File saved: '+SavePath)
-#     
-#     plt.close()
-# =============================================================================
+    
+    fig, ax = plt.subplots(figsize=FigSize)
+    ax.imshow(im, interpolation='spline16')
+    
+    ax.scatter(XYdat.X_im, XYdat.Y_im, c=series)
+    
+    
+    #plt.close()
+
 
 
 #%% Begin Real Script
@@ -313,7 +221,14 @@ def DotPlot(series,bounds,*title):
 #setup_gui()        #make guis a function later
 
 # read files
-XYdat, header,data=Read_files(XY_path)
+XYdat, header, data = Read_files(XY_path)
+
+# run image scale function
+if not YN_LoadSave: Image_Scale(im_path)
+
+#create image scale coordinates
+XYdat['X_im']=XYdat.X_FS*Xscale+Dx
+XYdat['Y_im']=XYdat.Y_FS*Yscale+Dy
 
 #%% Plot settings # make this a GUI later
 
@@ -331,17 +246,16 @@ cmap=cm.get_cmap('cool')
 # Cm_offset=0
 # =============================================================================
 
-# run image scale function
-if not YN_LoadSave: Image_Scale(im_path)
+
 
 # make plots folder if it doesnt exist
-PlotPath=Targdir+'/zFitMaps'
+PlotPath=Targdir+'/zDotPlots'
 if not os.path.exists(PlotPath):
     os.makedirs(PlotPath)
         
 #%% Generate plots
 
-# pull usefull loops out later
+# pull useful loops out later
 # =============================================================================
 # if YN_rec:
 #     receptors= list(Fits.Rec.drop_duplicates())
@@ -364,7 +278,7 @@ if not os.path.exists(PlotPath):
 # =============================================================================
    
 #%% done
-elapsed = round(time.time()-t,1)
+elapsed = round(time.time()-t0,1)
 print("Process took: {} seconds".format(elapsed))
 
 input('Press enter to exit')    
