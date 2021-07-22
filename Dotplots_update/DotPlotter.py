@@ -19,7 +19,7 @@ required packages:
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-#import numpy as np
+import numpy as np
 import os
 import easygui
 import sys
@@ -107,26 +107,6 @@ def GetFS_XY(ID):
     y=float(XYdat[XYdat.ID==ID].Y_FS)
     return x,y
 
-# =============================================================================
-# def FS_to_im(x_in,y_in):
-#     ''' 
-#     Convert full-scale XY coords into image-scale XY coords
-# 
-#     '''
-#     xout=x_in*Xscale+Dx
-#     yout=y_in*Yscale+Dy
-#     return xout,yout
-#     
-# def Get_im_XY(ID):
-#     ''' 
-#     Get image-scale XY coordinartes from stack/receptor ID
-# 
-#     '''
-#     x,y=GetFS_XY(ID)
-#     X,Y=FS_to_im(x,y)
-#     return X,Y
-# =============================================================================
-
 def Image_Scale(im_file):
     '''
     GUI tool to set and save image scale variables 
@@ -193,25 +173,44 @@ def Image_Scale(im_file):
 
 
 #colorbar setup func
-def cbScale(bounds,cmap):
+def cbScale(bounds):
+    series=np.arange(bounds[0],bounds[1]+1,1)
+    cmap=cm.get_cmap('jet')    #set color scheme here
     norm = colors.Normalize()
-    norm.autoscale(bounds)
-    sm = bounds.ScalarMappable(cmap=cmap,norm=norm)
+    norm.autoscale(series)
+    sm = cm.ScalarMappable(cmap=cmap,norm=norm)
     sm.set_array([])
     return sm
 
-def DotPlot(series,bounds,*title):
+def DotPlot(series,bounds,title):
     #make plot function here
     print('do some stuff')
+    x=XYdat.X_im
+    y=XYdat.Y_im
     
-    
+    if bounds[0]=='%':
+        bounds=[0,100]
+        series=series*100
+    else: 
+        bounds=[int(x) for x in bounds]
+        
+    sm=cbScale(bounds)
     
     fig, ax = plt.subplots(figsize=FigSize)
     ax.imshow(im, interpolation='spline16')
     
-    ax.scatter(XYdat.X_im, XYdat.Y_im, c=series)
+    ax.scatter(x, y, c=series, cmap=sm.cmap, s=DotSize)
+    
+    cb=plt.colorbar(sm)
+    cb.ax.set_title(title[0])
+    
+    for i in series.index:
+        plt.annotate(round(series[i]), (x[i]-X0,y[i]-Y0), color=FontColor, fontsize=FontSize)
+    
+
     
     
+    # see fitmapper.py for helpful code for saving   
     #plt.close()
 
 
@@ -223,30 +222,25 @@ def DotPlot(series,bounds,*title):
 # read files
 XYdat, header, data = Read_files(XY_path)
 
+##plot settings, add to Gui later
+#window size in inches (x,y)
+FigSize=(6,8)
+
+#colored dots size (pixels)
+DotSize=200
+
+#annotation settings
+X0=14           #x offset
+Y0=-5            #y offset
+FontColor='k'   #txt color
+FontSize=7      #txt size
+
 # run image scale function
 if not YN_LoadSave: Image_Scale(im_path)
 
 #create image scale coordinates
 XYdat['X_im']=XYdat.X_FS*Xscale+Dx
 XYdat['Y_im']=XYdat.Y_FS*Yscale+Dy
-
-#%% Plot settings # make this a GUI later
-
-#window size in inches (x,y)
-FigSize=(6,8)
-
-cmap=cm.get_cmap('cool')
-#cmap=cm.get_cmap('coolwarm')
-
-# =============================================================================
-# #annotation text 
-# Run_color='k'
-# Run_offset=0
-# Cm_color='r'
-# Cm_offset=0
-# =============================================================================
-
-
 
 # make plots folder if it doesnt exist
 PlotPath=Targdir+'/zDotPlots'
@@ -255,27 +249,10 @@ if not os.path.exists(PlotPath):
         
 #%% Generate plots
 
-# pull useful loops out later
-# =============================================================================
-# if YN_rec:
-#     receptors= list(Fits.Rec.drop_duplicates())
-#     for rec in receptors:
-#         df_in=Fits[Fits.Rec==rec].copy()
-#         cbScale(df_in.Cm)
-#         Fit_map(df_in, rec, 'rec')
-#     
-# if YN_stack:
-#     stacks= list(Fits.Stack.drop_duplicates())
-#     for stack in stacks:
-#         df_in=Fits[Fits.Stack==stack].copy()
-#         cbScale(df_in.Cm)
-#         Fit_map(df_in, stack, 'stack')
-# 
-# if YN_all:
-#     df_in=Fits.copy()
-#     cbScale(df_in.Cm)
-#     Fit_map(Fits,'All','all')
-# =============================================================================
+for i in data.columns:
+    bounds= header[i][0].split(',')
+    title=  header[i][1].split(',')
+    DotPlot(data[i], bounds, title)
    
 #%% done
 elapsed = round(time.time()-t0,1)
