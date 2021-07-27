@@ -50,6 +50,7 @@ if YN_LoadSave:
     Dx=ImIn['Dx']
     Dy=ImIn['Dy']
     im = plt.imread(im_path)
+    Targdir=os.path.dirname(XY_path)
 else:
     txt='Select input file...'
     ftyp= '*.xlsx'
@@ -64,7 +65,6 @@ else:
     im_path=easygui.fileopenbox(default=imdft,msg=imtxt,filetypes=imftyp)
     if im_path==None:sys.exit()
     
-
 t0 = time.time() #start timer
 
 #%% functions
@@ -143,9 +143,12 @@ def Image_Scale(im_file):
     x1,y1=pos1[0],pos1[1]
     x2,y2=pos2[0],pos2[1]
     
-    R1=input('Enter location #1:')
-  
-    R2=input('Enter location #2:')
+    #R1=input('Enter location #1:') 
+    #R2=input('Enter location #2:')
+    R1,R2=easygui.multenterbox(msg='Enter Locations',
+                                title='Enter Locations',
+                               fields=['Location 1:','Location 2:'],
+                               values=[1,2])
   
     
     X1,Y1=GetFS_XY(R1)
@@ -164,13 +167,10 @@ def Image_Scale(im_file):
            'Dx':Dx,
            'Dy':Dy,
            }
-    
-    # Store data (serialize) as pkl file
+    #Save data (serialize) as pkl file
     with open(SavePath, 'wb') as handle: pk.dump(ImOut, 
                                                  handle, 
                                                  protocol=pk.HIGHEST_PROTOCOL)    
-
-
 
 #colorbar setup func
 def cbScale(bounds):
@@ -181,6 +181,16 @@ def cbScale(bounds):
     sm = cm.ScalarMappable(cmap=cmap,norm=norm)
     sm.set_array([])
     return sm
+
+def FigSettings():
+    fields=['Figure width (in):','Figure height (in):', 'Dot Size (pixels^2):',
+            'Font size:','Font color (black=k, white=w):','Font x offset (pixels):', 'Font y offset (pixels):',
+            'Colormap (jet, cool, turbo, etc.)']
+    values=[6,8,200,
+            7,'k',14,-5,
+            'turbo'] #defaults
+    FigSet= easygui.multenterbox(msg='Select figure settings:',fields=fields,values=values)
+    return FigSet
 
 def DotPlot(series,bounds,title):
     #make plot function here
@@ -217,23 +227,20 @@ def DotPlot(series,bounds,title):
 
 #%% Begin Real Script
 
-#setup_gui()        #make guis a function later
-
 # read files
 XYdat, header, data = Read_files(XY_path)
 
-##plot settings, add to Gui later
-#window size in inches (x,y)
-FigSize=(6,8)
+#run figure settings gui
+FigSet=FigSettings()
 
-#colored dots size (pixels)
-DotSize=200
+#unpack fig settings
+FigSize=(float(FigSet[0]),float(FigSet[1])) #fig size
+DotSize=float(FigSet[2])        #colored dots size/area (pixels)
+FontSize=float(FigSet[3])       #txt size
+FontColor=FigSet[4]             #txt color
+X0=float(FigSet[5])             #x offset
+Y0=float(FigSet[6])             #y offset
 
-#annotation settings
-X0=14           #x offset
-Y0=-5            #y offset
-FontColor='k'   #txt color
-FontSize=7      #txt size
 
 # run image scale function
 if not YN_LoadSave: Image_Scale(im_path)
