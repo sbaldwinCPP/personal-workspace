@@ -65,7 +65,7 @@ else:
     im_path=easygui.fileopenbox(default=imdft,msg=imtxt,filetypes=imftyp)
     if im_path==None:sys.exit()
     
-t0 = time.time() #start timer
+
 
 #%% functions
 def Read_files(XY_path):
@@ -175,26 +175,17 @@ def Image_Scale(im_file):
 #colorbar setup func
 def cbScale(bounds):
     series=np.arange(bounds[0],bounds[1]+1,1)
-    cmap=cm.get_cmap('jet')    #set color scheme here
+    #cmap=cm.get_cmap('jet')    #set color scheme here
     norm = colors.Normalize()
     norm.autoscale(series)
     sm = cm.ScalarMappable(cmap=cmap,norm=norm)
     sm.set_array([])
     return sm
 
-def FigSettings():
-    fields=['Figure width (in):','Figure height (in):', 'Dot Size (pixels^2):',
-            'Font size:','Font color (black=k, white=w):','Font x offset (pixels):', 'Font y offset (pixels):',
-            'Colormap (jet, cool, turbo, etc.)']
-    values=[6,8,200,
-            7,'k',14,-5,
-            'turbo'] #defaults
-    FigSet= easygui.multenterbox(msg='Select figure settings:',fields=fields,values=values)
-    return FigSet
 
 def DotPlot(series,bounds,title):
     #make plot function here
-    print('do some stuff')
+    print('Plotting {}'.format(title))
     x=XYdat.X_im
     y=XYdat.Y_im
     
@@ -215,14 +206,30 @@ def DotPlot(series,bounds,title):
     cb.ax.set_title(title[0])
     
     for i in series.index:
-        plt.annotate(round(series[i]), (x[i]-X0,y[i]-Y0), color=FontColor, fontsize=FontSize)
+        if not np.isnan(series[i]):
+            plt.annotate(round(series[i]), (x[i]+X0,y[i]-Y0), color=FontColor, fontsize=FontSize)
+    
+    plt.axis('off') #remove tick marks on axis
+    
+    config=title[len(title)-1]      #in case only 1 title 
+    
+    SavePath=os.path.join(PlotPath,'DotPlot_{}_{}.png'.format(FigSet,config))
+    
+    plt.savefig(SavePath)
+    print('File saved: '+SavePath)
+    
+    plt.close()
     
 
-    
-    
-    # see fitmapper.py for helpful code for saving   
-    #plt.close()
-
+def FigSettings():
+    fields=['Figure width (in):','Figure height (in):', 'Dot Size (pixels^2):',
+            'Font size:','Font color (r,g,b,k,w,etc.):','Font x offset (pixels):', 'Font y offset (pixels):',
+            'Colormap (jet,cool,turbo,etc.)']
+    values=[9,7,200,
+            7,'k',-15,-10,
+            'jet'] #defaults
+    FigSet= easygui.multenterbox(msg='Select figure settings:',fields=fields,values=values)
+    return FigSet
 
 
 #%% Begin Real Script
@@ -233,6 +240,8 @@ XYdat, header, data = Read_files(XY_path)
 #run figure settings gui
 FigSet=FigSettings()
 
+t0 = time.time() #start timer
+
 #unpack fig settings
 FigSize=(float(FigSet[0]),float(FigSet[1])) #fig size
 DotSize=float(FigSet[2])        #colored dots size/area (pixels)
@@ -240,7 +249,7 @@ FontSize=float(FigSet[3])       #txt size
 FontColor=FigSet[4]             #txt color
 X0=float(FigSet[5])             #x offset
 Y0=float(FigSet[6])             #y offset
-
+cmap=FigSet[7]                  #colormap
 
 # run image scale function
 if not YN_LoadSave: Image_Scale(im_path)
@@ -263,11 +272,6 @@ for i in data.columns:
    
 #%% done
 elapsed = round(time.time()-t0,1)
-print("Process took: {} seconds".format(elapsed))
-
-input('Press enter to exit')    
-    
-
-
+easygui.msgbox(msg="Done!\nFiles saved here:\n{}\nProcess took: {} seconds".format(PlotPath,elapsed))
 
 
