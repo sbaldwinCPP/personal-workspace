@@ -47,6 +47,17 @@ def CalcCm(Cmax,WDc,Uc,A,B,WD,U):
                 Cm[i] = Cmax * np.exp((-A)*((1/U[i])-(1/Uc))**2) * np.exp(-(((WD_Bias)/B)**2))      
         return Cm
 
+def CalcCmErr(fit, WD, U):
+    c_nom = CalcCm(fit['Cmax'],
+                    fit['WDc'],
+                    fit['Uc'],
+                    fit['A'],
+                    fit['B'],
+                    WD,
+                    U )
+    nom_err=10 # % probably a bit more noisy than actual WT, no normal dist.
+    err=rand.randint(100 - nom_err, 100 + nom_err)/100
+    return c_nom * err
 
 def GetFit():
     print('Use GUI to enter fit parameters...')
@@ -65,52 +76,59 @@ def GetFit():
               rand.randint(1, (ucrit+1)**2),              
               rand.randint(10, 80),          
               ]
-    
-    inputs = easygui.multenterbox(msg='Enter criteria settings:',
-                              fields=fields,
-                              values=values
-                              )
-    if inputs is None: sys.exit()
-    
-    d = {'Cmax':float(inputs[0]),
-              'WDc':float(inputs[1]),
-              'Uc':float(inputs[2]),
-              'A':float(inputs[3]),
-              'B':float(inputs[4]),
-              }
-    print(d)
-    return d
 
-def CalcCmErr(fit, WD, U):
-    c_nom = CalcCm(fit['Cmax'],
-                    fit['WDc'],
-                    fit['Uc'],
-                    fit['A'],
-                    fit['B'],
-                    WD,
-                    U )
-    nom_err=10 # % probably a bit more noisy than actual WT, no normal dist.
-    err=rand.randint(100 - nom_err, 100 + nom_err)/100
-    return c_nom * err
+    while True:
+        # loop until acceptable inputs or cancel button
+        # should catch any non-number
+        try: 
+            inputs = easygui.multenterbox(msg='Enter fit parameters:',
+                                      fields=fields,
+                                      values=values
+                                      )
+            
+            d = {'Cmax':float(inputs[0]),
+                      'WDc':float(inputs[1]),
+                      'Uc':float(inputs[2]),
+                      'A':float(inputs[3]),
+                      'B':float(inputs[4]),
+                      }
+            print(d)
+            return d
+            break
+        except:
+            # need this to be able to exit script loop
+            if inputs is None: 
+                sys.exit()
+                #break #redundant??
+            else: 
+                print('Input error, please try again:')
+                next
 
 def GetTrl(WD, WS, Cm):
 
-    fields = ['Sample Wind Direction (deg):',
-              'Sample Wind Speed (m/s):', ]
+    fields = ['Wind Direction (deg):',
+              'Wind Speed (m/s):', ]
 
-    inputs = easygui.multenterbox(msg='Trial:', fields=fields)
+    inputs = easygui.multenterbox(msg='Sample:', fields=fields)
     
-    if inputs is None: return None, None, None
-    else:
-        try:
+    while True:
+        # loop until acceptable inputs or cancel button
+        # should catch any non-number
+        try: 
+            inputs = easygui.multenterbox(msg='Sample:', fields=fields)
             WD.append(float(inputs[0]))
             WS.append(float(inputs[1]))
             Cm.append(CalcCmErr(fit, WD[-1], WS[-1]))
             print(f"WD={inputs[0]} deg, WS={inputs[1]} m/s, Cm={round(Cm[-1])}")
             return WD, WS, Cm
-        except ValueError:
-            # should catch any non-number
-            return None, None, None
+            break
+        except:
+            if inputs is None: 
+                return None, None, None
+                break
+            else: 
+                print('Input error, please try again:')
+                next
 
 def ScatPlot(WD, WS, Cm):
     # plot settings
@@ -140,23 +158,21 @@ def ScatPlot(WD, WS, Cm):
 
 
 #%% Run
-fit = GetFit()
-
-# first pass
-# intitialize lists for data set
-WD = []
-WS = []
-Cm = []
-
 while True:
-    WD, WS, Cm = GetTrl(WD, WS, Cm)
-    if WD is None or WS is None or Cm is None: 
+    try:
         fit = GetFit()
+
+        # first pass
+        # intitialize lists for data set
         WD = []
         WS = []
         Cm = []
+        
         WD, WS, Cm = GetTrl(WD, WS, Cm)
-    ScatPlot(WD, WS, Cm)
+        ScatPlot(WD, WS, Cm)
+    except:
+        next
+    
     
     
 
