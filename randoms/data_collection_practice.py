@@ -13,6 +13,7 @@ try:
 
     # non-default packages
     import matplotlib.pyplot as plt
+    from matplotlib import cm, colors
     import numpy as np
     import easygui
     
@@ -47,7 +48,7 @@ def CalcCm(Cmax,WDc,Uc,A,B,WD,U):
                 Cm[i] = Cmax * np.exp((-A)*((1/U[i])-(1/Uc))**2) * np.exp(-(((WD_Bias)/B)**2))      
         return Cm
 
-def CalcCmErr(fit, WD, U):
+def CalcCmErr(fit, WD, U, t):
     c_nom = CalcCm(fit['Cmax'],
                     fit['WDc'],
                     fit['Uc'],
@@ -55,7 +56,12 @@ def CalcCmErr(fit, WD, U):
                     fit['B'],
                     WD,
                     U )
-    nom_err=10 # % probably a bit more noisy than actual WT, no normal dist.
+    
+    if t.lower()=='short' or t.lower()=='s':
+        nom_err=10 # % probably a bit more noisy than actual WT, no normal dist.
+    if t.lower()=='long' or t.lower()=='l':
+        nom_err=2 
+    
     err=rand.randint(100 - nom_err, 100 + nom_err)/100
     return c_nom * err
 
@@ -81,7 +87,7 @@ def GetFit():
         # loop until acceptable inputs or cancel button
         # should catch any non-number
         try: 
-            inputs = easygui.multenterbox(msg='Enter fit parameters:',
+            inputs = easygui.multenterbox(msg='Confirm/Enter fit parameters:',
                                       fields=fields,
                                       values=values
                                       )
@@ -90,51 +96,68 @@ def GetFit():
                       'WDc':float(inputs[1]),
                       'Uc':float(inputs[2]),
                       'A':float(inputs[3]),
-                      'B':float(inputs[4]),
+                      'B':float(inputs[4]), 
                       }
+            
             print(d)
             return d
             break
+        
         except:
-            # need this to be able to exit script loop
             if inputs is None: 
+                # needed to be able to exit script loop
+                plt.close('all')
                 sys.exit()
-                #break #redundant??
             else: 
                 print('Input error, please try again:')
                 next
 
-def GetTrl(WD, WS, Cm):
+def GetTrl(WD, WS, Cm, trl):
 
     fields = ['Wind Direction (deg):',
-              'Wind Speed (m/s):', ]
-
-    inputs = easygui.multenterbox(msg='Sample:', fields=fields)
+              'Wind Speed (m/s):',
+              'Long or short?:',
+              ]
+    
+    values= ['','','short']
     
     while True:
         # loop until acceptable inputs or cancel button
         # should catch any non-number
         try: 
-            inputs = easygui.multenterbox(msg='Sample:', fields=fields)
+            inputs = easygui.multenterbox(msg='Sample:', fields=fields, values=values)
             WD.append(float(inputs[0]))
             WS.append(float(inputs[1]))
-            Cm.append(CalcCmErr(fit, WD[-1], WS[-1]))
-            print(f"WD={inputs[0]} deg, WS={inputs[1]} m/s, Cm={round(Cm[-1])}")
-            return WD, WS, Cm
+            trl.append(inputs[2])
+            Cm.append(CalcCmErr(fit, WD[-1], WS[-1], trl[-1]))
+            print(f"WD={WD[-1]} deg, WS={WS[-1]} m/s, Cm={round(Cm[-1])} trl={trl[-1]}")
+            return WD, WS, Cm, trl
+            #plt.close('all')
             break
         except:
             if inputs is None: 
-                return None, None, None
+                return None
                 break
             else: 
                 print('Input error, please try again:')
                 next
 
-def ScatPlot(WD, WS, Cm):
+def ScatPlot(WD, WS, Cm, trl):
+    plt.close('all')
     # plot settings
-    #mpl.rcdefaults()            # reset to defaults
+    # mpl.rcdefaults()           # reset to defaults
     styles=plt.style.available  # save all plot styles to  list
     plt.style.use(styles[14])   # set style
+    
+    s_marker="o"
+    l_marker="*"
+    markers=[]
+    
+    for t in trl:
+        if t.lower()=='short' or t.lower()=='s':
+            markers.append(s_marker)
+        if t.lower()=='long' or t.lower()=='l':
+            markers.append(l_marker)
         
     fig, ax = plt.subplots(2,1)
     ax[0].set_xlim(0, 360)
@@ -148,29 +171,67 @@ def ScatPlot(WD, WS, Cm):
     ax[1].set_xlabel('WS (m/s)')
     ax[1].set_ylabel('Cm')
     
-    #cmap='nipy_spectral'
-    cmap='prism'
-    ax[0].scatter(WD, Cm, c=WS, cmap=cmap)
-    ax[1].scatter(WS, Cm, c=WD, cmap=cmap)
+    
+    # colorbar setup    
+    sm_ws = cbScale([0, 25], 'nipy_spectral')
+    sm_wd = cbScale([0, 360], 'prism')
+        
+    # shorts
+    s_index = [i for i, x in enumerate(markers) if x == s_marker]
+    size = 20
+    for i in s_index:
+        ax[0].scatter(WD[i], Cm[i], s=size, color=sm_ws.cmap(sm_ws.norm(WS[i])), marker=s_marker)
+        ax[1].scatter(WS[i], Cm[i], s=size, color=sm_wd.cmap(sm_wd.norm(WD[i])), marker=s_marker)
+
+    # longs
+    l_index = [i for i, x in enumerate(markers) if x == l_marker]
+    size = 100
+    for i in l_index:
+        ax[0].scatter(WD[i], Cm[i], s=size, color=sm_ws.cmap(sm_ws.norm(WS[i])), marker=l_marker)
+        ax[1].scatter(WS[i], Cm[i], s=size, color=sm_ws.cmap(sm_ws.norm(WS[i])), marker=l_marker)
     
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
+# colorbar setup func
+def cbScale(bounds, cmap):
+    '''
+    use:
+    sm = cbScale(bounds, cmap)
+    ax.scatter(... , color=sm.cmap(sm.norm(series[i]), ...)
+    '''
+    s=np.arange(bounds[0],bounds[1]+1,1)
+    norm = colors.Normalize()
+    norm.autoscale(s)
+    sm = cm.ScalarMappable(cmap=cmap,norm=norm)
+    sm.set_array([])
+    return sm
 
 #%% Run
+
+fit = GetFit()
+
+# first pass
+# intitialize lists for data set
+WD = []
+WS = []
+Cm = []
+trl = []
+
 while True:
     try:
+        WD, WS, Cm, trl = GetTrl(WD, WS, Cm, trl)
+        ScatPlot(WD, WS, Cm, trl)
+        next
+    except (TypeError, ValueError):
+        # triggers on 
+        # reset for another run
+        # program can be quit by cancelling GetFit() window
         fit = GetFit()
-
-        # first pass
-        # intitialize lists for data set
         WD = []
         WS = []
         Cm = []
-        
-        WD, WS, Cm = GetTrl(WD, WS, Cm)
-        ScatPlot(WD, WS, Cm)
-    except:
+        trl = []
         next
     
     
