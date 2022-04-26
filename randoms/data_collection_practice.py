@@ -60,7 +60,7 @@ def CalcCmErr(fit, WD, U, t):
     if t.lower()=='short' or t.lower()=='s':
         nom_err=10 # % probably a bit more noisy than actual WT, no normal dist.
     if t.lower()=='long' or t.lower()=='l':
-        nom_err=2 
+        nom_err=3 
     
     err=rand.randint(100 - nom_err, 100 + nom_err)/100
     return c_nom * err
@@ -106,13 +106,14 @@ def GetFit():
         except:
             if inputs is None: 
                 # needed to be able to exit script loop
+                print('Goodbye')
                 plt.close('all')
                 sys.exit()
             else: 
                 print('Input error, please try again:')
                 next
 
-def GetTrl(WD, WS, Cm, trl):
+def GetTrl(fit, WD, WS, Cm, trl):
 
     fields = ['Wind Direction (deg):',
               'Wind Speed (m/s):',
@@ -132,10 +133,10 @@ def GetTrl(WD, WS, Cm, trl):
             Cm.append(CalcCmErr(fit, WD[-1], WS[-1], trl[-1]))
             print(f"WD={WD[-1]} deg, WS={WS[-1]} m/s, Cm={round(Cm[-1])} trl={trl[-1]}")
             return WD, WS, Cm, trl
-            #plt.close('all')
             break
         except:
             if inputs is None: 
+                print('Exiting run...')
                 return None
                 break
             else: 
@@ -159,18 +160,17 @@ def ScatPlot(WD, WS, Cm, trl):
         if t.lower()=='long' or t.lower()=='l':
             markers.append(l_marker)
         
-    fig, ax = plt.subplots(2,1)
+    fig, ax = plt.subplots(2,1)    
+    
     ax[0].set_xlim(0, 360)
     ax[0].set_ylim(0, max(Cm)*1.1)
     ax[0].set_xlabel('WD (deg)')
     ax[0].set_ylabel('Cm')
     
-    
     ax[1].set_xlim(0, 25)
     ax[1].set_ylim(0, max(Cm)*1.1)
     ax[1].set_xlabel('WS (m/s)')
     ax[1].set_ylabel('Cm')
-    
     
     # colorbar setup    
     sm_ws = cbScale([0, 25], 'nipy_spectral')
@@ -188,10 +188,11 @@ def ScatPlot(WD, WS, Cm, trl):
     size = 100
     for i in l_index:
         ax[0].scatter(WD[i], Cm[i], s=size, color=sm_ws.cmap(sm_ws.norm(WS[i])), marker=l_marker)
-        ax[1].scatter(WS[i], Cm[i], s=size, color=sm_ws.cmap(sm_ws.norm(WS[i])), marker=l_marker)
+        ax[1].scatter(WS[i], Cm[i], s=size, color=sm_wd.cmap(sm_wd.norm(WD[i])), marker=l_marker)
     
     plt.tight_layout()
     plt.show(block=False)
+
 
 # colorbar setup func
 def cbScale(bounds, cmap):
@@ -207,32 +208,34 @@ def cbScale(bounds, cmap):
     sm.set_array([])
     return sm
 
+def mainloop():
+    # first pass
+    # intitialize lists
+    fit = GetFit()
+    WD = []
+    WS = []
+    Cm = []
+    trl = []
+    
+    while True:
+        try:
+            WD, WS, Cm, trl = GetTrl(fit, WD, WS, Cm, trl)
+            ScatPlot(WD, WS, Cm, trl)
+            next
+        except (TypeError, ValueError):
+            print('Starting new run...')
+            # reset for another run
+            # program can be quit by cancelling GetFit() window
+            fit = GetFit()
+            WD = []
+            WS = []
+            Cm = []
+            trl = []
+            next
+
 #%% Run
-
-fit = GetFit()
-
-# first pass
-# intitialize lists for data set
-WD = []
-WS = []
-Cm = []
-trl = []
-
-while True:
-    try:
-        WD, WS, Cm, trl = GetTrl(WD, WS, Cm, trl)
-        ScatPlot(WD, WS, Cm, trl)
-        next
-    except (TypeError, ValueError):
-        # triggers on 
-        # reset for another run
-        # program can be quit by cancelling GetFit() window
-        fit = GetFit()
-        WD = []
-        WS = []
-        Cm = []
-        trl = []
-        next
+if __name__ == '__main__': mainloop()
+    
     
     
     
