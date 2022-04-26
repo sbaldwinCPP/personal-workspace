@@ -5,7 +5,7 @@ Created on Fri Apr  8 14:18:52 2022
 @author: sbaldwin
 """
 
-# modules
+#%% modules
 try:
     # default packages
     import sys
@@ -21,7 +21,7 @@ try:
 except ModuleNotFoundError as err:
     input(str(err) +' \n Press enter to exit')
     
-# functions
+#%% functions
 def CalcCm(Cmax,WDc,Uc,A,B,WD,U):
     '''
     Calculate normalized concentration given fit parameters and 
@@ -36,7 +36,7 @@ def CalcCm(Cmax,WDc,Uc,A,B,WD,U):
         else: Cm = Cmax * np.exp((-A)*((1/U)-(1/Uc))**2) * np.exp(-(((WD_Bias)/B)**2))
         return Cm
     except ValueError:
-        #if a series of WD and WS are passsed
+        # if a series of WD and WS are passsed
         Cm=np.zeros(len(WD))   
         for i in range(len(WD)):
             if U[i] == 0: 
@@ -145,11 +145,18 @@ def GetTrl(fit, WD, WS, Cm, trl):
 
 def ScatPlot(WD, WS, Cm, trl):
     plt.close('all')
-    # plot settings
-    # mpl.rcdefaults()           # reset to defaults
-    styles=plt.style.available  # save all plot styles to  list
-    plt.style.use(styles[14])   # set style
     
+# =============================================================================
+#     # plot styles
+#     import matplotlib as mpl
+#     mpl.rcdefaults()            # reset to defaults
+#     styles=plt.style.available  # save all plot styles to  list
+# =============================================================================
+    
+    # set style
+    plt.style.use('seaborn-darkgrid')
+    
+    # set markers
     s_marker="o"
     l_marker="*"
     markers=[]
@@ -173,7 +180,7 @@ def ScatPlot(WD, WS, Cm, trl):
     ax[1].set_ylabel('Cm')
     
     # colorbar setup    
-    sm_ws = cbScale([0, 25], 'nipy_spectral')
+    sm_ws = cbScale([0, 25], 'gist_rainbow')
     sm_wd = cbScale([0, 360], 'prism')
         
     # shorts
